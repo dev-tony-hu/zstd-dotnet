@@ -62,8 +62,8 @@ jobs:
             echo "Updated csproj PackageVersion -> ${packageVersion}"            
             cat src/ZstdDotnet.NativeAssets/ZstdDotnet.NativeAssets.csproj | grep PackageVersion -n || true
             dotnet pack src/ZstdDotnet.NativeAssets/ZstdDotnet.NativeAssets.csproj -o ./nupkgs --configuration ${{ env.config }}
-            #find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
-            #find . -name '*.snupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} \;
+            find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
+            find . -name '*.snupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} \;
 
         shell: bash
 
