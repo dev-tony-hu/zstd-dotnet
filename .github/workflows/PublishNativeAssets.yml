@@ -58,10 +58,10 @@ jobs:
             pwd
             dir ./bin
             # Sync PackageVersion into csproj (overwriting existing value)
-            xmlstarlet ed -L -u "/Project/PropertyGroup/PackageVersion" -v "${packageVersion}" src/ZstdSharp.NativeAssets/ZstdSharp.NativeAssets.csproj
+            xmlstarlet ed -L -u "/Project/PropertyGroup/PackageVersion" -v "${packageVersion}" src/ZstdDotnet.NativeAssets/ZstdDotnet.NativeAssets.csproj
             echo "Updated csproj PackageVersion -> ${packageVersion}"            
-            cat src/ZstdSharp.NativeAssets/ZstdSharp.NativeAssets.csproj | grep PackageVersion -n || true
-            dotnet pack src/ZstdSharp.NativeAssets/ZstdSharp.NativeAssets.csproj -o ./nupkgs --configuration ${{ env.config }}
+            cat src/ZstdDotnet.NativeAssets/ZstdDotnet.NativeAssets.csproj | grep PackageVersion -n || true
+            dotnet pack src/ZstdDotnet.NativeAssets/ZstdDotnet.NativeAssets.csproj -o ./nupkgs --configuration ${{ env.config }}
             #find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
             #find . -name '*.snupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} \;
 
