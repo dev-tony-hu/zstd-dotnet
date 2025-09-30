@@ -1,0 +1,74 @@
+name: Build Native Package
+
+# workflow_dispatch is used to manually invoke the GH action
+on: [workflow_dispatch]
+
+env:
+  # Setting the required env flags
+  config: Release
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  dotnet_core_version: 8.0.x
+
+jobs:
+  publish_job:
+    # CI running on linux
+    runs-on: ubuntu-latest
+
+    steps:
+      # This step clones the source code to the CI build machine
+      - name: Checkout code
+        uses: actions/checkout@v2
+       
+
+      # This step installs the .NET SDK
+      - name: Install .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ env.dotnet_core_version }}
+      
+      - name: Install dependencies
+        run: |
+            sudo apt install unzip -y
+            sudo apt-get install xmlstarlet -y
+
+      # Run dotnet pack to create the nupkg file for the project and store in artifacts folder
+      - name: Build native
+        run: |
+            packageVersion=$(cat VERSION_NATIVE.txt)
+            echo "Detected zstd/package version: ${packageVersion}"
+            packageName="zstd-${packageVersion}.tar.gz"
+            pwd
+            mkdir -p bin
+            wget https://github.com/facebook/zstd/releases/download/v${packageVersion}/${packageName}
+            tar -xvf ${packageName}
+            cd "zstd-${packageVersion}"
+            make
+            pwd
+            dir .
+            echo "open lib"
+            dir ./lib
+            cp ./lib/libzstd.so ../bin/libzstd.so
+            cd ..
+            windowsPackageName="zstd-v${packageVersion}-win64.zip"
+            wget https://github.com/facebook/zstd/releases/download/v${packageVersion}/${windowsPackageName}
+            unzip ${windowsPackageName}
+            cp ./zstd-v${packageVersion}-win64/dll/libzstd.dll ./bin/libzstd.dll
+            echo "build finish"
+            pwd
+            dir ./bin
+            # Sync PackageVersion into csproj (overwriting existing value)
+            xmlstarlet ed -L -u "/Project/PropertyGroup/PackageVersion" -v "${packageVersion}" src/ZstdSharp.NativeAssets/ZstdSharp.NativeAssets.csproj
+            echo "Updated csproj PackageVersion -> ${packageVersion}"            
+            cat src/ZstdSharp.NativeAssets/ZstdSharp.NativeAssets.csproj | grep PackageVersion -n || true
+            dotnet pack src/ZstdSharp.NativeAssets/ZstdSharp.NativeAssets.csproj -o ./nupkgs --configuration ${{ env.config }}
+            #find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
+            #find . -name '*.snupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} \;
+
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkgs
+          path: nupkgs/*.nupkg

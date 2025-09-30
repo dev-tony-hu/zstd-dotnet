@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<PackageId>ZstdDotnet.NativeAssets</PackageId>
+		<PackageVersion>1.5.7</PackageVersion>
+		<Authors>Tony Hu</Authors>
+		<Description>zstd dotnet native dependency</Description>
+		<PackageProjectUrl>https://github.com/dev-tony-hu/zstd-native</PackageProjectUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+	</PropertyGroup>
+	<ItemGroup>
+		<None Include="../../bin/libzstd.dll" Pack="true" PackagePath="runtimes/win-x64/native" />
+		<None Include="../../bin/libzstd.so" Pack="true" PackagePath="runtimes/linux-x64/native" />
+		<None Include="../../licenses/*" Pack="true" PackagePath="licenses/" />
+	</ItemGroup>
+</Project>
