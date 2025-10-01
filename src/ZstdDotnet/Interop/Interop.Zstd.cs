@@ -8,6 +8,7 @@ internal static class ZstdInterop
     internal static bool SupportsCStreamReset => VersionNumber >= 10400u;
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern uint ZSTD_versionNumber();
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern int ZSTD_maxCLevel();
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern int ZSTD_minCLevel();
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr ZSTD_createCStream();
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_initCStream(IntPtr zcs, int compressionLevel);
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_freeCStream(IntPtr zcs);

@@ -4,7 +4,7 @@ This document provides examples for incremental encoder/decoder usage and the on
 
 ## Incremental compression (ZstdEncoder)
 ```csharp
-var encoder = new ZstdEncoder(quality: 5);
+var encoder = new ZstdEncoder(CompressionLevel.Optimal); // or new ZstdEncoder(level: 5)
 var input = GetLargeBytes();
 var outputBuffer = new byte[64 * 1024];
 int offset = 0;
@@ -48,16 +48,18 @@ Use these when you already hold the full buffer in memory.
 byte[] raw = File.ReadAllBytes("big.dat");
 int maxGuess = raw.Length + 512 + raw.Length / 20;
 byte[] tmp = new byte[maxGuess];
-if (ZstdEncoder.TryCompress(raw, tmp, out int written, quality: 7))
+if (ZstdEncoder.TryCompress(raw, tmp, out int written, CompressionLevel.SmallestSize))
 {
     File.WriteAllBytes("big.dat.zst", tmp.AsSpan(0, written).ToArray());
 }
 else
 {
-    var compressed = ZstdEncoder.Compress(raw, quality: 7);
+    var compressed = ZstdEncoder.Compress(raw, CompressionLevel.SmallestSize);
     File.WriteAllBytes("big.dat.zst", compressed);
 }
 ```
+
+`CompressionLevel` values map to concrete zstd levels: `NoCompression` / `Fastest` → `ZstdProperties.MinCompressionLevel` (native `ZSTD_minCLevel()`), `Optimal` → default (`5`), `SmallestSize` → `ZstdProperties.MaxCompressionLevel`. Use the integer overloads when you need fine-grained control over intermediate levels.
 
 ### TryDecompress / Decompress
 ```csharp

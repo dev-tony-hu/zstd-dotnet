@@ -39,7 +39,7 @@ ZstdDotnet is a high-performance, streaming-friendly .NET wrapper for the Zstand
 - Full streaming support: chunked writes/reads and transparent multi-frame decoding.
 - True async APIs (`ReadAsync`, `WriteAsync`, `FlushAsync`, `DisposeAsync`) with no sync blocking shims.
 - `Span<byte>`/`Memory<byte>` overloads to minimize allocations and copies.
-- Configurable compression level (default 6, range 1..`ZstdProperties.MaxCompressionLevel`).
+- Configurable compression level via precise integers or the built-in `CompressionLevel` enum (default 5, range `ZstdProperties.MinCompressionLevel`..`ZstdProperties.MaxCompressionLevel`).
 - Concurrency guards: prevents simultaneous read/write/flush/dispose on the same instance.
 - Frame tooling: `ZstdFrameDecoder` and `ZstdFrameInspector` expose incremental frame metadata and async iteration.
 - Hardened with 49 unit tests covering edge cases, fuzz inputs, concurrency, cancellation, and huge frames.

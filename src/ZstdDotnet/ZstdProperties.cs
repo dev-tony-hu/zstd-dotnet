@@ -4,7 +4,7 @@ public static class ZstdProperties
 {
     public static Version LibraryVersion => _version.Value;
     public static int MaxCompressionLevel => _maxCompressionLevel.Value;
-    public static int MinCompressionLevel => 1; // ZSTD 通常定义最小等级为 1
+    public static int MinCompressionLevel => _minCompressionLevel.Value;
     public static bool SupportsReset => ZstdInterop.SupportsCStreamReset; // >= 1.4.0
 
     private static readonly Lazy<Version> _version = new(() =>
@@ -14,4 +14,5 @@ public static class ZstdProperties
     });
 
     private static readonly Lazy<int> _maxCompressionLevel = new(() => ZstdInterop.ZSTD_maxCLevel());
+    private static readonly Lazy<int> _minCompressionLevel = new(() => ZstdInterop.ZSTD_minCLevel());
 }

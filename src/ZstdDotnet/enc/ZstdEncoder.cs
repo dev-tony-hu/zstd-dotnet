@@ -1,3 +1,5 @@
+using System.IO.Compression;
+
 namespace ZstdDotnet;
 
 public sealed partial class ZstdEncoder : IDisposable
@@ -10,22 +12,25 @@ public sealed partial class ZstdEncoder : IDisposable
     private ZstdBuffer _in = new();
     private ZstdBuffer _out = new();
 
-    public ZstdEncoder(int quality = 6)
+    public ZstdEncoder(int level = ZstdCompressionLevelHelper.DefaultLevel)
     {
-        if (quality < 1 || quality > ZstdProperties.MaxCompressionLevel)
-            throw new ArgumentOutOfRangeException(nameof(quality));
-        _level = quality;
+        ZstdCompressionLevelHelper.ValidateLevel(level, nameof(level));
+        _level = level;
         _cstream = ZstdInterop.ZSTD_createCStream();
     }
 
-    public void Reset(int? newQuality = null, bool resetParameters = false)
+    public ZstdEncoder(CompressionLevel compressionLevel)
+        : this(ZstdCompressionLevelHelper.GetLevelFromCompressionLevel(compressionLevel))
+    {
+    }
+
+    public void Reset(int? newLevel = null, bool resetParameters = false)
     {
         ThrowIfDisposed();
-        if (newQuality.HasValue)
+        if (newLevel.HasValue)
         {
-            int q = newQuality.Value;
-            if (q < 1 || q > ZstdProperties.MaxCompressionLevel)
-                throw new ArgumentOutOfRangeException(nameof(newQuality));
+            int q = newLevel.Value;
+            ZstdCompressionLevelHelper.ValidateLevel(q, nameof(newLevel));
             if (q != _level)
             {
                 _level = q; // update level; will be applied on next init

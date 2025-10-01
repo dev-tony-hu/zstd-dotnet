@@ -41,7 +41,7 @@ public partial class ZstdStream : Stream, IAsyncDisposable
         CompressionLevel = compressionLevel;
     }
 
-    private int compressionLevel = 6;
+    private int compressionLevel = 3;
     public int CompressionLevel
     {
         get => compressionLevel;
@@ -55,7 +55,7 @@ public partial class ZstdStream : Stream, IAsyncDisposable
                 if (mode == CompressionMode.Compress && encoder != null)
                 {
                     // Reset encoder to apply new level on next write
-                    encoder.Reset(newQuality: value, resetParameters: true);
+                    encoder.Reset(newLevel: value, resetParameters: true);
                 }
             }
         }

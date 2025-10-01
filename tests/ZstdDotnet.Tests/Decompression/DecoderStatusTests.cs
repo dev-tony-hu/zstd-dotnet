@@ -130,7 +130,7 @@ public class DecoderStatusTests
         {
             // Arrange
             var raw = System.Text.Encoding.UTF8.GetBytes("Hello Static Decoder ✅");
-            var compressed = ZstdEncoder.Compress(raw, quality: 3);
+                var compressed = ZstdEncoder.Compress(raw, level: 3);
             var tmp = new byte[raw.Length];
 
             // Act
@@ -149,7 +149,7 @@ public class DecoderStatusTests
         public void TryDecompress_DestinationTooSmall_ReturnsFalse()
         {
             var raw = System.Text.Encoding.UTF8.GetBytes("DataTooSmall");
-            var compressed = ZstdEncoder.Compress(raw, quality: 3);
+                var compressed = ZstdEncoder.Compress(raw, level: 3);
             var tiny = new byte[2];
             bool ok = ZstdDecoder.TryDecompress(compressed, tiny, out int written);
             Assert.False(ok);
@@ -165,7 +165,7 @@ public class DecoderStatusTests
         {
             var raw = new byte[1024];
             new Random(123).NextBytes(raw);
-            var compressed = ZstdEncoder.Compress(raw, quality: 5);
+                var compressed = ZstdEncoder.Compress(raw, level: 5);
 
             // Give a deliberately too-small expected size to force growth loop
             var result = ZstdDecoder.Decompress(compressed, expectedSize: 16);
