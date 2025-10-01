@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <PackageId>ZstdDotnet</PackageId>
+        <PackageVersion>1.5.7.0</PackageVersion>
+        <Authors>Tony Hu</Authors>
+        <Description>zstd dotnet library</Description>
+        <PackageProjectUrl>https://github.com/dev-tony-hu/zstd-dotnet</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <RootNamespace>ZstdDotnet</RootNamespace>
+        <AssemblyName>ZstdDotnet</AssemblyName>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="ZstdDotnet.NativeAssets"
+                          Version="1.5.7" />
+    </ItemGroup>
+</Project>

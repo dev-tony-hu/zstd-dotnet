@@ -1,0 +1,93 @@
+name: Publish ZstdDotnet Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip-tests:
+        description: "Skip dotnet test before packing"
+        required: false
+        default: "false"
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: 1
+  CONFIGURATION: Release
+  DOTNET_VERSION: 8.0.x
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install XMLStarlet
+        run: sudo apt-get update && sudo apt-get install -y xmlstarlet
+
+      - name: Resolve package version
+        id: versioning
+        shell: bash
+        run: |
+          set -euo pipefail
+          managed_version=$(xmlstarlet sel -t -v "/Project/PropertyGroup/PackageVersion" src/ZstdDotnet/ZstdDotnet.csproj | tr -d '\r\n')
+          native_version=$(xmlstarlet sel -t -v "/Project/PropertyGroup/PackageVersion" src/ZstdDotnet.NativeAssets/ZstdDotnet.NativeAssets.csproj | tr -d '\r\n')
+
+          if [[ -z "${managed_version}" ]]; then
+            echo "Failed to resolve managed package version from csproj" >&2
+            exit 1
+          fi
+
+          if [[ -z "${native_version}" ]]; then
+            echo "Failed to resolve native package version from csproj" >&2
+            exit 1
+          fi
+
+          if [[ ! "${managed_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Managed package version must be a four-part semantic version (e.g. 1.5.7.0). Update PackageVersion in src/ZstdDotnet/ZstdDotnet.csproj" >&2
+            exit 1
+          fi
+
+          package_version="${managed_version}"
+
+          echo "Managed source version: ${managed_version}"
+          echo "Resolved NuGet version: ${package_version}"
+          echo "Native dependency version: ${native_version}"
+
+            xmlstarlet ed -L -u "/Project/ItemGroup/PackageReference[@Include='ZstdDotnet.NativeAssets']/@Version" -v "${native_version}" src/ZstdDotnet/ZstdDotnet.csproj || true
+
+          echo "package_version=${package_version}" >> "$GITHUB_OUTPUT"
+          echo "native_version=${native_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore ZstdDotnet.sln
+
+      - name: Run tests
+        if: ${{ inputs.skip-tests != 'true' }}
+        run: dotnet test ZstdDotnet.sln --configuration ${{ env.CONFIGURATION }}
+
+      - name: Pack ZstdDotnet
+        run: dotnet pack src/ZstdDotnet/ZstdDotnet.csproj --configuration ${{ env.CONFIGURATION }} -o nupkgs
+
+      - name: Push package to NuGet
+        env:
+          NUGET_KEY: ${{ secrets.NUGET_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${NUGET_KEY}" ]]; then
+            echo "NUGET_DEPLOY_KEY secret is missing" >&2
+            exit 1
+          fi
+          find nupkgs -name "*.nupkg" -print -exec dotnet nuget push {} -s https://api.nuget.org/v3/index.json -k "${NUGET_KEY}" --skip-duplicate \;
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zstddotnet-nupkgs
+          path: nupkgs/*.nupkg

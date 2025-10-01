@@ -32,11 +32,27 @@ jobs:
             sudo apt install unzip -y
             sudo apt-get install xmlstarlet -y
 
+      - name: Determine package version
+        id: version
+        shell: bash
+        run: |
+            set -euo pipefail
+            csproj="src/ZstdDotnet.NativeAssets/ZstdDotnet.NativeAssets.csproj"
+            packageVersion=$(xmlstarlet sel -t -v "/Project/PropertyGroup/PackageVersion" "${csproj}" | tr -d '\r\n')
+            if [[ -z "${packageVersion}" ]]; then
+              echo "Failed to resolve PackageVersion from ${csproj}" >&2
+              exit 1
+            fi
+            echo "Detected package version from csproj: ${packageVersion}"
+            echo "package_version=${packageVersion}" >> "$GITHUB_OUTPUT"
+
       # Run dotnet pack to create the nupkg file for the project and store in artifacts folder
       - name: Build native
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
         run: |
-            packageVersion=$(cat VERSION_NATIVE.txt)
-            echo "Detected zstd/package version: ${packageVersion}"
+            packageVersion="${PACKAGE_VERSION}"
+            echo "Using zstd/package version: ${packageVersion}"
             packageName="zstd-${packageVersion}.tar.gz"
             pwd
             mkdir -p bin
@@ -57,9 +73,6 @@ jobs:
             echo "build finish"
             pwd
             dir ./bin
-            # Sync PackageVersion into csproj (overwriting existing value)
-            xmlstarlet ed -L -u "/Project/PropertyGroup/PackageVersion" -v "${packageVersion}" src/ZstdDotnet.NativeAssets/ZstdDotnet.NativeAssets.csproj
-            echo "Updated csproj PackageVersion -> ${packageVersion}"            
             cat src/ZstdDotnet.NativeAssets/ZstdDotnet.NativeAssets.csproj | grep PackageVersion -n || true
             dotnet pack src/ZstdDotnet.NativeAssets/ZstdDotnet.NativeAssets.csproj -o ./nupkgs --configuration ${{ env.config }}
             find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
