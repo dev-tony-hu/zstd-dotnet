@@ -152,7 +152,7 @@ public partial class ZstdStream
             // If the previous frame was ended by FlushFrame, begin a new one lazily now.
             if (pendingFrameReset)
             {
-                encoder.Reset(resetParameters: false);
+                encoder.Reset();
                 pendingFrameReset = false;
             }
             while (count > 0)

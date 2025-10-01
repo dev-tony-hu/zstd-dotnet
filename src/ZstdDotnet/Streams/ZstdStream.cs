@@ -2,6 +2,7 @@ namespace ZstdDotnet;
 
 public partial class ZstdStream : Stream, IAsyncDisposable
 {
+    private const int DEFAULT_BUFFER_SIZE = 65536; // same as System.IO.Stream default
     private readonly Stream stream;
     private readonly CompressionMode mode;
     private readonly bool leaveOpen;
@@ -25,15 +26,12 @@ public partial class ZstdStream : Stream, IAsyncDisposable
         if (mode == CompressionMode.Compress)
         {
             encoder = new ZstdEncoder(CompressionLevel);
-            var outSize = ZstdInterop.ZSTD_CStreamOutSize().ToUInt32();
-            data = arrayPool.Rent((int)outSize);
         }
         else
         {
             decoder = new ZstdDecoder();
-            var inSize = ZstdInterop.ZSTD_DStreamInSize().ToUInt32();
-            data = arrayPool.Rent((int)inSize);
         }
+        data = arrayPool.Rent(DEFAULT_BUFFER_SIZE);
     }
 
     public ZstdStream(Stream stream, int compressionLevel, bool leaveOpen = false) : this(stream, CompressionMode.Compress, leaveOpen)
@@ -55,7 +53,8 @@ public partial class ZstdStream : Stream, IAsyncDisposable
                 if (mode == CompressionMode.Compress && encoder != null)
                 {
                     // Reset encoder to apply new level on next write
-                    encoder.Reset(newLevel: value, resetParameters: true);
+                    encoder.Reset();
+                    encoder.SetCompressionLevel(value);
                 }
             }
         }

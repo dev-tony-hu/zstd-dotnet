@@ -1,63 +1,71 @@
-using System.IO.Compression;
-
 namespace ZstdDotnet;
 
 public sealed partial class ZstdEncoder : IDisposable
 {
-    private IntPtr _cstream;
-    private bool _disposed;
-    private bool _initialized;
-    private int _level; // made non-readonly so Reset can change it
+    // Compression context (SafeHandle wrapper) – unified path only (requires libzstd >= 1.5.0)
+    private ZstdCCtxHandle ctx;
+    private bool disposed;
+    private int level; // adjustable via Reset
 
-    private ZstdBuffer _in = new();
-    private ZstdBuffer _out = new();
+    private ZstdBuffer inBuf = new();
+    private ZstdBuffer outBuf = new();
 
     public ZstdEncoder(int level = ZstdCompressionLevelHelper.DefaultLevel)
     {
+        if (!ZstdInterop.SupportsCompressStream2)
+            throw new NotSupportedException("libzstd >= 1.5.0 required (ZSTD_compressStream2)");
         ZstdCompressionLevelHelper.ValidateLevel(level, nameof(level));
-        _level = level;
-        _cstream = ZstdInterop.ZSTD_createCStream();
+        this.level = level;
+        ctx = new ZstdCCtxHandle();
     }
+
 
     public ZstdEncoder(CompressionLevel compressionLevel)
         : this(ZstdCompressionLevelHelper.GetLevelFromCompressionLevel(compressionLevel))
     {
     }
 
-    public void Reset(int? newLevel = null, bool resetParameters = false)
+    
+    public void Reset()
     {
         ThrowIfDisposed();
-        if (newLevel.HasValue)
-        {
-            int q = newLevel.Value;
-            ZstdCompressionLevelHelper.ValidateLevel(q, nameof(newLevel));
-            if (q != _level)
-            {
-                _level = q; // update level; will be applied on next init
-                resetParameters = true; // need params reapplied
-            }
-        }
-        if (_cstream == IntPtr.Zero)
-        {
-            _cstream = ZstdInterop.ZSTD_createCStream();
-            _initialized = false;
-            return;
-        }
-        // Efficient reset via native API
-        ZstdInterop.ResetCStream(_cstream, resetParameters);
-        _initialized = false; // will re-init with (possibly new) level on next use
+        if (ctx is null || ctx.IsInvalid)
+            ctx = new ZstdCCtxHandle();
+        // Session-only reset; parameters+pfx reapplied lazily on next Configure
+        ctx.Reset();
+        // After reset, worker threads can be reconfigured before next EnsureInit
+    }
+
+    public void SetCompressionLevel(int newLevel)
+    {
+        ThrowIfDisposed();
+        ZstdCompressionLevelHelper.ValidateLevel(newLevel, nameof(newLevel));
+        if (ctx.IsConfigured)
+            throw new InvalidOperationException("SetCompressionLevel must be called before first compression or after a Reset before reuse.");
+        level = newLevel;
+    }
+
+    /// <summary>
+    /// Sets a raw content prefix (NOT a trained dictionary) expected to match the beginning of subsequently
+    /// compressed data, potentially improving compression ratio for similar streams.
+    /// Must be invoked before first compression after construction or a <see cref="Reset"/>.
+    /// The provided span is defensively copied; for large prefixes prefer reusing the encoder instead of
+    /// repeatedly calling SetPrefix. Passing an empty span clears any previously set prefix.
+    /// </summary>
+    public void SetPrefix(ReadOnlyMemory<byte> prefix)
+    {
+        ThrowIfDisposed();
+        if (ctx.IsConfigured)
+            throw new InvalidOperationException("SetPrefix must be called before starting compression (after Reset if reused).");
+        ctx.SetPrefix(prefix);
     }
 
     public void Dispose()
     {
-        if (!_disposed)
+        if (!disposed)
         {
-            if (_cstream != IntPtr.Zero)
-            {
-                ZstdInterop.ZSTD_freeCStream(_cstream);
-                _cstream = IntPtr.Zero;
-            }
-            _disposed = true;
+            ctx?.Dispose();
+            disposed = true;
             GC.SuppressFinalize(this);
         }
     }
@@ -80,91 +88,48 @@ public sealed partial class ZstdEncoder : IDisposable
     public System.Buffers.OperationStatus Compress(ReadOnlySpan<byte> source, Span<byte> destination, out int bytesConsumed, out int bytesWritten, bool isFinalBlock = false)
     {
         ThrowIfDisposed();
-        EnsureInit();
+    EnsureInit();
         bytesConsumed = 0; bytesWritten = 0;
         unsafe
         {
             fixed (byte* inPtr = source)
             fixed (byte* outPtr = destination)
             {
-                // Feed input once per call – we trust caller to loop on statuses.
-                _in.Data = (IntPtr)(inPtr + bytesConsumed);
-                _in.Size = (UIntPtr)(uint)(source.Length - bytesConsumed);
-                _in.Position = (UIntPtr)0;
-                _out.Data = (IntPtr)(outPtr + bytesWritten);
-                _out.Size = (UIntPtr)(uint)(destination.Length - bytesWritten);
-                _out.Position = (UIntPtr)0;
-                ZstdInterop.ThrowIfError(ZstdInterop.ZSTD_compressStream(_cstream, _out, _in));
-                bytesConsumed += (int)_in.Position.ToUInt32();
-                bytesWritten += (int)_out.Position.ToUInt32();
+                // Unified API only
+                inBuf.Data = (IntPtr)(inPtr + bytesConsumed);
+                inBuf.Size = (UIntPtr)(uint)(source.Length - bytesConsumed);
+                inBuf.Position = (UIntPtr)0;
+                outBuf.Data = (IntPtr)(outPtr + bytesWritten);
+                outBuf.Size = (UIntPtr)(uint)(destination.Length - bytesWritten);
+                outBuf.Position = (UIntPtr)0;
+                var directive = isFinalBlock ? ZSTD_EndDirective.ZSTD_e_end : ZSTD_EndDirective.ZSTD_e_continue;
+                var remaining = ZstdInterop.ZSTD_compressStream2(ctx.DangerousGetHandle(), outBuf, inBuf, directive);
+                ZstdInterop.ThrowIfError(remaining);
+                bytesConsumed += (int)inBuf.Position.ToUInt32();
+                bytesWritten += (int)outBuf.Position.ToUInt32();
 
-                // If final block and we've consumed all input, attempt to finish the frame.
-                if (isFinalBlock && bytesConsumed == source.Length)
+                if (directive == ZSTD_EndDirective.ZSTD_e_end)
                 {
-                    int before = bytesWritten;
-                    bool frameFinished = FinishFrame(ref bytesWritten, destination);
-                    if (!frameFinished && bytesWritten == destination.Length)
-                        return System.Buffers.OperationStatus.DestinationTooSmall; // need more space to finalize
-                    if (frameFinished)
+                    bool finished = remaining == UIntPtr.Zero;
+                    if (finished && bytesConsumed == source.Length)
                         return System.Buffers.OperationStatus.Done;
-                    // frame not finished but buffer filled -> DestinationTooSmall already handled above
+                    if (!finished && bytesWritten == destination.Length)
+                        return System.Buffers.OperationStatus.DestinationTooSmall;
                 }
 
-                // Not final block paths:
                 if (!isFinalBlock)
                 {
-                    // If some destination produced but internal still has pending (rare) we signal DestTooSmall when buffer exhausted
                     if (bytesWritten == destination.Length)
                         return System.Buffers.OperationStatus.DestinationTooSmall;
-                    // If we consumed all provided input and produced something (or nothing) but more input is needed to progress
                     if (bytesConsumed == source.Length && bytesWritten < destination.Length)
                         return System.Buffers.OperationStatus.NeedMoreData;
                 }
-                // Default: work for this slice finished – either partial progress or nothing pending.
                 return System.Buffers.OperationStatus.Done;
             }
         }
     }
 
-    private bool FinishFrame(ref int written, Span<byte> output)
-    {
-        // Loop flush/end until endStream reports completion (returns 0) or buffer fills.
-        unsafe
-        {
-            fixed (byte* outPtr = output)
-            {
-                while (true)
-                {
-                    // Flush pending
-                    _out.Data = (IntPtr)(outPtr + written);
-                    _out.Size = (UIntPtr)(uint)(output.Length - written);
-                    _out.Position = (UIntPtr)0;
-                    ZstdInterop.ThrowIfError(ZstdInterop.ZSTD_flushStream(_cstream, _out));
-                    written += (int)_out.Position.ToUInt32();
-                    if (written == output.Length) return false; // caller must provide more space
-
-                    // Attempt endStream
-                    _out.Data = (IntPtr)(outPtr + written);
-                    _out.Size = (UIntPtr)(uint)(output.Length - written);
-                    _out.Position = (UIntPtr)0;
-                    var remaining = ZstdInterop.ZSTD_endStream(_cstream, _out);
-                    ZstdInterop.ThrowIfError(remaining);
-                    written += (int)_out.Position.ToUInt32();
-                    if (remaining == UIntPtr.Zero) return true; // frame fully finished
-                    if (written == output.Length) return false;  // need more space to finalize
-                }
-            }
-        }
-    }
-
-    private void EnsureInit()
-    {
-        if (!_initialized)
-        {
-            ZstdInterop.ThrowIfError(ZstdInterop.ZSTD_initCStream(_cstream, _level));
-            _initialized = true;
-        }
-    }
+    private void EnsureInit() => ctx.Configure(level); // idempotent
 
 
     /// <summary>
@@ -199,14 +164,18 @@ public sealed partial class ZstdEncoder : IDisposable
             {
                 while (true)
                 {
-                    _out.Data = (IntPtr)(outPtr + bytesWritten);
-                    _out.Size = (UIntPtr)(uint)(destination.Length - bytesWritten);
-                    _out.Position = (UIntPtr)0;
-                    var remaining = ZstdInterop.ZSTD_flushStream(_cstream, _out);
+                    outBuf.Data = (IntPtr)(outPtr + bytesWritten);
+                    outBuf.Size = (UIntPtr)(uint)(destination.Length - bytesWritten);
+                    outBuf.Position = (UIntPtr)0;
+                    // Provide an empty input buffer for pure flush
+                    inBuf.Data = IntPtr.Zero;
+                    inBuf.Size = UIntPtr.Zero;
+                    inBuf.Position = UIntPtr.Zero;
+                    var remaining = ZstdInterop.ZSTD_compressStream2(ctx.DangerousGetHandle(), outBuf, inBuf, ZSTD_EndDirective.ZSTD_e_flush);
                     ZstdInterop.ThrowIfError(remaining);
-                    bytesWritten += (int)_out.Position.ToUInt32();
-                    if (remaining == UIntPtr.Zero) return OperationStatus.Done; // nothing more pending
-                    if (bytesWritten == destination.Length) return OperationStatus.DestinationTooSmall; // caller needs to supply more space
+                    bytesWritten += (int)outBuf.Position.ToUInt32();
+                    if (remaining == UIntPtr.Zero) return OperationStatus.Done;
+                    if (bytesWritten == destination.Length) return OperationStatus.DestinationTooSmall;
                 }
             }
         }
@@ -214,6 +183,6 @@ public sealed partial class ZstdEncoder : IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(ZstdEncoder));
+        if (disposed) throw new ObjectDisposedException(nameof(ZstdEncoder));
     }
 }

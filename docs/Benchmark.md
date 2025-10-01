@@ -58,6 +58,7 @@ Artifacts land in `BenchmarkDotNet.Artifacts/results/`:
 * Higher compression levels → lower throughput / smaller output
 * Random data (`rnd`) yields ratios near 1; throughput reflects pure algorithm overhead
 * Text/structured datasets benefit more from compression
+* Unified streaming path (post-removal of legacy `compress/flush/end`) reduces native call count during flush/final phases – marginally improving throughput for flush-heavy scenarios.
 
 ## Future Enhancements
 * Add async benchmarks (WriteAsync / ReadAsync)

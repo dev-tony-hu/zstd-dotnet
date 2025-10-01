@@ -8,7 +8,7 @@
 4. Manage lifetime with `SafeHandle`, `Dispose`, and optional caching.
 
 ## Window and parameter tuning
-Potentially expose parameters such as `WindowLog`, `HashLog`, `ChainLog`, `SearchLog`, `MinMatch`, `TargetLength`, and `NbWorkers`.
+Potentially expose parameters such as `WindowLog`, `HashLog`, `ChainLog`, `SearchLog`, `MinMatch`, `TargetLength`.
 
 Conceptual API:
 ```csharp
@@ -34,7 +34,7 @@ Truncated or incomplete streams: the implementation returns whatever was success
 - Buffers are returned to the pool without zeroing (performance first).
 
 ## Performance ideas
-- Experiment with multi-threaded parameters such as `ZSTD_c_nbWorkers` when the native library supports them.
+- Experiment with multi-threaded parameters such as `ZSTD_c_nbWorkers` when the native library supports them.(in the future)
 - Cache dictionaries by identifier to avoid rebuilding them repeatedly.
 - Adapt chunk size based on throughput feedback.
 

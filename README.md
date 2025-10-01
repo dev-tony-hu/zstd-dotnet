@@ -42,13 +42,18 @@ ZstdDotnet is a high-performance, streaming-friendly .NET wrapper for the Zstand
 - Configurable compression level via precise integers or the built-in `CompressionLevel` enum (default 5, range `ZstdProperties.MinCompressionLevel`..`ZstdProperties.MaxCompressionLevel`).
 - Concurrency guards: prevents simultaneous read/write/flush/dispose on the same instance.
 - Frame tooling: `ZstdFrameDecoder` and `ZstdFrameInspector` expose incremental frame metadata and async iteration.
-- Hardened with 49 unit tests covering edge cases, fuzz inputs, concurrency, cancellation, and huge frames.
+- Hardened with 60+ unit tests covering edge cases, fuzz inputs, concurrency, cancellation, pooling, and huge frames.
+- Requires native libzstd >= 1.5.0 (the library now exclusively uses the unified `ZSTD_compressStream2()` API; legacy `compress/flush/end` trio removed internally).
+ - Decoder uses DCtx (modern context); optional `SetMaxWindow(log)` to cap memory usage.
+ - Reusable decoder instances via `ZstdDecoderPool` reduce allocation and native context churn.
+ - Optional raw content prefix via `ZstdEncoder.SetPrefix(memory)` to boost ratio when many frames share an initial header-like segment.
+
 
 ## Installation
 
 ```xml
 <ItemGroup>
-	<PackageReference Include="ZstdDotnet" Version="1.5.7.0" />
+	<PackageReference Include="ZstdDotnet" Version="1.5.7.1" />
 </ItemGroup>
 ```
 
@@ -133,6 +138,7 @@ See [docs/LowLevel.md](docs/LowLevel.md) for incrementally streaming the low-lev
 | `ZstdFrameInspector.EnumerateFrames(...)` | Inspect frame metadata without decompressing |
 | `ZstdFrameDecoder.DecodeFramesAsync(...)` | Async frame iterator returning content + metadata |
 | `ZstdProperties.LibraryVersion` | Reports the native library version |
+| `ZstdProperties.ZstdVersion` / `ZstdProperties.ZstdVersionString` | Alternate strongly typed / string version forms |
 | `ZstdProperties.MaxCompressionLevel` | Reports the maximum available level |
 
 ## Flush API cheat sheet

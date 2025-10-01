@@ -3,6 +3,8 @@ namespace ZstdDotnet;
 public static class ZstdProperties
 {
     public static Version LibraryVersion => _version.Value;
+    public static Version ZstdVersion => LibraryVersion; // alias
+    public static string ZstdVersionString => LibraryVersion.ToString();
     public static int MaxCompressionLevel => _maxCompressionLevel.Value;
     public static int MinCompressionLevel => _minCompressionLevel.Value;
     public static bool SupportsReset => ZstdInterop.SupportsCStreamReset; // >= 1.4.0

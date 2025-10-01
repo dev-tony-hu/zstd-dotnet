@@ -67,7 +67,8 @@ public class ZstdBasicTests
         var status1 = encoder.Compress(src, compressed, out _, out int written, isFinalBlock: true);
         Assert.Equal(System.Buffers.OperationStatus.Done, status1);
         Assert.True(written > 0);
-    encoder.Reset(newLevel: 4, resetParameters: true);
+        encoder.Reset();
+        encoder.SetCompressionLevel(4);
         var src2 = Encoding.ASCII.GetBytes("payload-two-payload-two-payload-two");
         Span<byte> compressed2 = stackalloc byte[256];
         var status2 = encoder.Compress(src2, compressed2, out _, out int written2, isFinalBlock: true);

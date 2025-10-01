@@ -2,39 +2,44 @@ namespace ZstdDotnet;
 
 public sealed partial class ZstdDecoder : IDisposable
 {
-    private IntPtr dstream;
+    private ZstdDCtxHandle dctx;
     private bool disposed;
     private bool initialized;
+    private int maxWindowLog = -1; // -1 means not set
     private ZstdBuffer inBuffer = new();
     private ZstdBuffer outBuffer = new();
 
     public ZstdDecoder()
     {
-        dstream = ZstdInterop.ZSTD_createDStream();
+        dctx = new ZstdDCtxHandle();
     }
 
     public void Reset()
     {
         ThrowIfDisposed();
-        if (dstream == IntPtr.Zero)
-        {
-            dstream = ZstdInterop.ZSTD_createDStream();
-            initialized = false;
-            return;
-        }
-        ZstdInterop.ResetDStream(dstream);
-        initialized = false; // re-init on next use
+        if (dctx is null || dctx.IsInvalid)
+            dctx = new ZstdDCtxHandle();
+        // Use session reset only (no parameter concept currently exposed for decoder)
+        ZstdInterop.ThrowIfError(ZstdInterop.ZSTD_DCtx_reset(dctx.DangerousGetHandle(), ZSTD_ResetDirective.ZSTD_reset_session_only));
+        initialized = false;
+    }
+
+    /// <summary>Sets the maximum allowed window log (2^windowLog bytes) to cap memory usage; must be called before first Decompress after construction/reset.</summary>
+    public void SetMaxWindow(int windowLog)
+    {
+        ThrowIfDisposed();
+        if (initialized)
+            throw new InvalidOperationException("SetMaxWindow must be called before starting decompression (after Reset if reused).");
+        if (windowLog < 10 || windowLog > 31) // heuristic bounds; zstd typical range
+            throw new ArgumentOutOfRangeException(nameof(windowLog));
+        maxWindowLog = windowLog;
     }
 
     public void Dispose()
     {
         if (!disposed)
         {
-            if (dstream != IntPtr.Zero)
-            {
-                ZstdInterop.ZSTD_freeDStream(dstream);
-                dstream = IntPtr.Zero;
-            }
+            dctx?.Dispose();
             disposed = true;
             GC.SuppressFinalize(this);
         }
@@ -72,7 +77,7 @@ public sealed partial class ZstdDecoder : IDisposable
                 outBuffer.Data = (IntPtr)(outPtr + bytesWritten);
                 outBuffer.Size = (UIntPtr)(uint)(destination.Length - bytesWritten);
                 outBuffer.Position = (UIntPtr)0;
-                var result = ZstdInterop.ZSTD_decompressStream(dstream, outBuffer, inBuffer);
+                var result = ZstdInterop.ZSTD_decompressStream(dctx.DangerousGetHandle(), outBuffer, inBuffer);
                 ZstdInterop.ThrowIfError(result);
                 bytesConsumed += (int)inBuffer.Position.ToUInt32();
                 bytesWritten += (int)outBuffer.Position.ToUInt32();
@@ -102,7 +107,11 @@ public sealed partial class ZstdDecoder : IDisposable
     {
         if (!initialized)
         {
-            ZstdInterop.ThrowIfError(ZstdInterop.ZSTD_initDStream(dstream));
+            // DCtx path: first call to ZSTD_decompressStream performs any needed lazy init; no explicit init required.
+            if (maxWindowLog > 0)
+            {
+                ZstdInterop.ThrowIfError(ZstdInterop.ZSTD_DCtx_setParameter(dctx.DangerousGetHandle(), ZSTD_dParameter.ZSTD_d_windowLogMax, maxWindowLog));
+            }
             initialized = true;
         }
     }

@@ -6,30 +6,33 @@ internal static class ZstdInterop
     private static readonly uint VersionNumber = ZSTD_versionNumber();
     // ZSTD_resetCStream introduced in v1.4.0 (per zstd changelog). 1.4.0 -> 1*100*100 + 4*100 + 0 = 10400
     internal static bool SupportsCStreamReset => VersionNumber >= 10400u;
+    // ZSTD_compressStream2 introduced in v1.5.0 -> 1*100*100 + 5*100 + 0 = 10500
+    internal static bool SupportsCompressStream2 => VersionNumber >= 10500u;
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern uint ZSTD_versionNumber();
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern int ZSTD_maxCLevel();
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern int ZSTD_minCLevel();
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr ZSTD_createCStream();
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_initCStream(IntPtr zcs, int compressionLevel);
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_freeCStream(IntPtr zcs);
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_CStreamInSize();
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_CStreamOutSize();
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_compressStream(IntPtr zcs, [MarshalAs(UnmanagedType.LPStruct)] ZstdBuffer outputBuffer, [MarshalAs(UnmanagedType.LPStruct)] ZstdBuffer inputBuffer);
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr ZSTD_createDStream();
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_initDStream(IntPtr zds);
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_freeDStream(IntPtr zds);
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_DStreamInSize();
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_DStreamOutSize();
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_decompressStream(IntPtr zds, [MarshalAs(UnmanagedType.LPStruct)] ZstdBuffer outputBuffer, [MarshalAs(UnmanagedType.LPStruct)] ZstdBuffer inputBuffer);
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_flushStream(IntPtr zcs, [MarshalAs(UnmanagedType.LPStruct)] ZstdBuffer outputBuffer);
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_endStream(IntPtr zcs, [MarshalAs(UnmanagedType.LPStruct)] ZstdBuffer outputBuffer);
+    // Legacy CStream APIs removed (create/init/free/size/compress). Encoder path uses CCtx + ZSTD_compressStream2 exclusively.
+    // New unified streaming API (>= 1.5.0). Returns remaining to flush/end.
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_compressStream2(IntPtr cctx, [MarshalAs(UnmanagedType.LPStruct)] ZstdBuffer outputBuffer, [MarshalAs(UnmanagedType.LPStruct)] ZstdBuffer inputBuffer, ZSTD_EndDirective endOp);
+    // CCtx APIs (modern unified context)
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr ZSTD_createCCtx();
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_freeCCtx(IntPtr cctx);
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_CCtx_setParameter(IntPtr cctx, ZSTD_cParameter param, int value);
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_CCtx_reset(IntPtr cctx, ZSTD_ResetDirective reset);
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_CCtx_refPrefix(IntPtr cctx, IntPtr prefix, UIntPtr prefixSize);
+    // DCtx APIs (decoder modern unified context) - parallels CCtx for decompression
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr ZSTD_createDCtx();
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_freeDCtx(IntPtr dctx);
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_DCtx_reset(IntPtr dctx, ZSTD_ResetDirective reset);
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_DCtx_setParameter(IntPtr dctx, ZSTD_dParameter param, int value);
+    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_decompressStream(IntPtr dctx, [MarshalAs(UnmanagedType.LPStruct)] ZstdBuffer outputBuffer, [MarshalAs(UnmanagedType.LPStruct)] ZstdBuffer inputBuffer);
+    // Legacy flush/end (CStream) removed; use ZSTD_compressStream2 with ZSTD_e_flush / ZSTD_e_end instead.
     // Frame inspection (size discovery)
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_findFrameCompressedSize(IntPtr src, UIntPtr srcSize);
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern ulong ZSTD_getFrameContentSize(IntPtr src, UIntPtr srcSize);
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_getFrameHeader(out ZSTD_frameHeader zfh, IntPtr src, UIntPtr srcSize);
     // Reset APIs (ZSTD v1.4.0+) - More efficient reuse than free/create. Mode constants: 0 = reset session only, 1 = reset parameters, 2 = reset session + params
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_resetCStream(IntPtr zcs, uint resetMode);
-    [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] public static extern UIntPtr ZSTD_resetDStream(IntPtr zds);
+    // Legacy resetCStream removed (CCtx reset used instead)
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] internal static extern bool ZSTD_isError(UIntPtr code);
     [DllImport("libzstd", CallingConvention = CallingConvention.Cdecl)] private static extern IntPtr ZSTD_getErrorName(UIntPtr code);
     public static void ThrowIfError(UIntPtr code)
@@ -42,21 +45,6 @@ internal static class ZstdInterop
         }
     }
 
-    public static void ResetCStream(IntPtr zcs, bool resetParameters)
-    {
-        if (zcs == IntPtr.Zero) throw new ArgumentNullException(nameof(zcs));
-        if (!SupportsCStreamReset)
-            throw new NotSupportedException("libzstd version does not support ZSTD_resetCStream (requires >= 1.4.0)");
-        // 0 = session only, 1 = parameters only, 2 = both. We choose 0 or 2 so parameters optionally re-applied by re-init.
-        uint mode = resetParameters ? 2u : 0u;
-        ThrowIfError(ZSTD_resetCStream(zcs, mode));
-    }
-
-    public static void ResetDStream(IntPtr zds)
-    {
-        if (zds == IntPtr.Zero) throw new ArgumentNullException(nameof(zds));
-        ThrowIfError(ZSTD_resetDStream(zds));
-    }
 
     public static ulong FindFrameCompressedSize(ReadOnlySpan<byte> data)
     {
@@ -105,6 +93,32 @@ internal static class ZstdInterop
             }
         }
     }
+}
+
+internal enum ZSTD_EndDirective : uint
+{
+    ZSTD_e_continue = 0,
+    ZSTD_e_flush    = 1,
+    ZSTD_e_end      = 2
+}
+
+// Subset of compression parameters we need now (can extend later)
+internal enum ZSTD_cParameter : int
+{
+    ZSTD_c_compressionLevel = 100, // from zstd.h
+}
+
+internal enum ZSTD_ResetDirective : uint
+{
+    ZSTD_reset_session_only = 1,
+    ZSTD_reset_parameters   = 2,
+    ZSTD_reset_session_and_parameters = 3
+}
+
+// Decoder parameters subset
+internal enum ZSTD_dParameter : int
+{
+    ZSTD_d_windowLogMax = 100
 }
 
 [StructLayout(LayoutKind.Sequential)]
