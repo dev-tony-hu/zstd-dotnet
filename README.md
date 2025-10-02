@@ -5,25 +5,27 @@ ZstdDotnet is a high-performance, streaming-friendly .NET wrapper for the Zstand
 > The managed `ZstdDotnet` package delivers the .NET API surface, while `ZstdDotnet.NativeAssets` ships the cross-platform native binaries. This README covers both.
 
 ## Table of contents
-- [Packages](#packages)
-- [Features](#features)
-- [Installation](#installation)
-- [Quick start](#quick-start)
-	- [Asynchronous usage](#asynchronous-usage)
-	- [Span/Memory helpers](#spanmemory-helpers)
-- [API at a glance](#api-at-a-glance)
-- [Flush API cheat sheet](#flush-api-cheat-sheet)
-- [Design & performance notes](#design--performance-notes)
-- [Building & testing](#building--testing)
-- [Native assets package](#native-assets-package)
-	- [Goals & layout](#goals--layout)
-	- [Building libzstd](#building-libzstd)
-	- [Packing & publishing](#packing--publishing)
-	- [Upgrade checklist](#upgrade-checklist)
-- [Benchmarks](#benchmarks)
-- [Additional documentation](#additional-documentation)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
+- [ZstdDotnet](#zstddotnet)
+	- [Table of contents](#table-of-contents)
+	- [Packages](#packages)
+	- [Features](#features)
+	- [Installation](#installation)
+	- [Quick start](#quick-start)
+		- [Asynchronous usage](#asynchronous-usage)
+		- [Span/Memory helpers](#spanmemory-helpers)
+	- [API at a glance](#api-at-a-glance)
+	- [Flush API cheat sheet](#flush-api-cheat-sheet)
+	- [Design \& performance notes](#design--performance-notes)
+	- [Building \& testing](#building--testing)
+	- [Native assets package](#native-assets-package)
+		- [Goals \& layout](#goals--layout)
+		- [Building libzstd](#building-libzstd)
+		- [Packing \& publishing](#packing--publishing)
+		- [Upgrade checklist](#upgrade-checklist)
+	- [Benchmarks](#benchmarks)
+	- [Additional documentation](#additional-documentation)
+	- [License](#license)
+	- [Acknowledgements](#acknowledgements)
 
 ## Packages
 
@@ -290,7 +292,7 @@ Find results under `BenchmarkDotNet.Artifacts/results/`. Use `--job Dry` for a q
 
 ## License
 
-Distributed under the MIT License. Upstream zstd licenses are bundled in the `licenses/` directory.
+Distributed under the MIT License. Upstream Zstandard library code used here (only the `lib` directory, built as a dynamically linked native library) is under the 3-clause BSD license. See `licenses/THIRD-PARTY-NOTICES.txt` for architectural usage notes and `licenses/zstdlicense.txt` for the full upstream BSD text.
 
 ## Acknowledgements
 

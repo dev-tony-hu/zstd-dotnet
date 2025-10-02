@@ -1,0 +1,52 @@
+Third-Party Notices
+====================
+
+Project: zstd-dotnet
+
+This project includes and redistributes third-party components. Their
+respective licenses and notices are referenced below.
+
+------------------------------------------------------------
+Zstandard (Zstd) Library
+------------------------------------------------------------
+Language: C
+Upstream: https://github.com/facebook/zstd
+
+Usage Scope:
+  Only the 'lib' directory source code of Zstandard is compiled into a native
+  dynamic library (DLL) which is then invoked via P/Invoke from the managed
+  .NET layer of this project.
+
+Architecture Integration:
+  Zstd C code (lib) -> Native DLL -> P/Invoke -> .NET wrapper (this package)
+
+License Classification:
+  Upstream intentionally separates the library (BSD license) from the
+  command-line programs (GPLv2). This project does NOT include, modify or
+  distribute any code from the `programs` directory.
+
+Why the BSD license applies:
+  The reused portion (lib directory) is under a 3-clause BSD license as stated
+  in upstream licensing files. Dynamic linking to a BSD-licensed library does
+  not impose copyleft obligations on this project's MIT-licensed managed code.
+
+Obligations:
+  - Preserve original BSD copyright and license text (included as
+    `licenses/zstdlicense.txt`).
+  - Provide attribution in distribution artifacts (this notice file).
+
+No GPLv2 Triggered:
+  - No static linking or inclusion of GPL-only program code.
+  - Dynamic linking + P/Invoke forms a clear boundary separating managed code.
+  - Upstream's separated licensing model (library vs. programs) is respected.
+
+Full License Text:
+  See `licenses/zstdlicense.txt` for the complete upstream BSD license.
+
+Summary:
+  This project dynamically links only the BSD-licensed library portion of
+  Zstandard. No GPLv2 program code is included. Attribution and the original
+  BSD license have been preserved; therefore no additional copyleft terms
+  apply to this MIT-licensed work.
+
+End of THIRD-PARTY-NOTICES
