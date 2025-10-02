@@ -38,7 +38,7 @@ jobs:
         run: |
             set -euo pipefail
             csproj="src/ZstdDotnet.NativeAssets/ZstdDotnet.NativeAssets.csproj"
-            packageVersion=$(xmlstarlet sel -t -v "/Project/PropertyGroup/PackageVersion" "${csproj}" | tr -d '\r\n')
+            packageVersion=$(xmlstarlet sel -t -v "/Project/PropertyGroup/LibraryVersion" "${csproj}" | tr -d '\r\n')
             if [[ -z "${packageVersion}" ]]; then
               echo "Failed to resolve PackageVersion from ${csproj}" >&2
               exit 1

@@ -2,12 +2,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <PackageId>ZstdDotnet</PackageId>
-    <PackageVersion>1.5.7.1</PackageVersion>
-        <Authors>Tony Hu</Authors>
+        <PackageVersion>1.5.7.2</PackageVersion>
+        <Authors>Tony</Authors>
         <Description>zstd dotnet library</Description>
-        <PackageProjectUrl>https://github.com/dev-tony-hu/zstd-dotnet</PackageProjectUrl>
+        <PackageProjectUrl>https://github.com/tony-ssdut/zstd-dotnet</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -23,6 +23,6 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="ZstdDotnet.NativeAssets"
-                          Version="1.5.7" />
+                          Version="1.5.7.2" />
     </ItemGroup>
 </Project>
